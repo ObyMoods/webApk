@@ -1,0 +1,62 @@
+name: Run Script on Push
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        
+    - name: Install dependencies
+      run: |
+        if [ -f "package.json" ]; then
+          npm install
+        fi
+        
+    - name: Find and run script
+      run: |
+        # Cari file script (index.js, main.js, script.js, app.js)
+        if [ -f "index.js" ]; then
+          echo "Running index.js..."
+          node index.js
+        elif [ -f "main.js" ]; then
+          echo "Running main.js..."
+          node main.js
+        elif [ -f "script.js" ]; then
+          echo "Running script.js..."
+          node script.js
+        elif [ -f "app.js" ]; then
+          echo "Running app.js..."
+          node app.js
+        else
+          echo "No script found to run"
+          # Cari semua file .js dan jalankan yang pertama
+          SCRIPT=$(find . -name "*.js" -not -path "./node_modules/*" | head -1)
+          if [ -n "$SCRIPT" ]; then
+            echo "Running $SCRIPT..."
+            node $SCRIPT
+          else
+            echo "No JavaScript files found"
+            exit 1
+          fi
+        fi
+        
+    - name: Upload logs
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: script-logs
+        path: |
+          *.log
+          output.txt
