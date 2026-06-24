@@ -1,9 +1,20 @@
-name: Run Script on Push
+name: Run Script from Package.json
 
 on:
   push:
     branches: [ main, master ]
   workflow_dispatch:
+    inputs:
+      script_name:
+        description: 'Nama script dari package.json (tanpa .js)'
+        required: false
+        default: 'start'
+        type: string
+      script_file:
+        description: 'Nama file JS (contoh: index.js)'
+        required: false
+        default: 'index.js'
+        type: string
 
 jobs:
   run-script:
@@ -11,52 +22,121 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       
     - name: Setup Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
+        cache: 'npm'
         
-    - name: Install dependencies
+    - name: Detect package.json
+      id: detect_package
       run: |
         if [ -f "package.json" ]; then
-          npm install
+          echo "✅ package.json found"
+          echo "has_package=true" >> $GITHUB_OUTPUT
+          
+          echo "## 📦 Package.json Scripts" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Script | Command |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|---------|" >> $GITHUB_STEP_SUMMARY
+          
+          if command -v jq &> /dev/null; then
+            jq -r '.scripts | to_entries[] | "| \(.key) | `\(.value)` |"' package.json >> $GITHUB_STEP_SUMMARY
+          else
+            grep -A 100 '"scripts"' package.json | grep -E '"[^"]+":' | sed 's/^[[:space:]]*"\([^"]*\)": "\([^"]*\)",*$/| \1 | `\2` |/' >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "❌ package.json not found"
+          echo "has_package=false" >> $GITHUB_OUTPUT
         fi
         
-    - name: Find and run script
+    - name: Install dependencies
+      if: steps.detect_package.outputs.has_package == 'true'
       run: |
-        # Cari file script (index.js, main.js, script.js, app.js)
-        if [ -f "index.js" ]; then
-          echo "Running index.js..."
-          node index.js
-        elif [ -f "main.js" ]; then
-          echo "Running main.js..."
-          node main.js
-        elif [ -f "script.js" ]; then
-          echo "Running script.js..."
-          node script.js
-        elif [ -f "app.js" ]; then
-          echo "Running app.js..."
-          node app.js
-        else
-          echo "No script found to run"
-          # Cari semua file .js dan jalankan yang pertama
-          SCRIPT=$(find . -name "*.js" -not -path "./node_modules/*" | head -1)
-          if [ -n "$SCRIPT" ]; then
-            echo "Running $SCRIPT..."
-            node $SCRIPT
+        echo "📦 Installing dependencies..."
+        npm ci --only=production || npm install --production
+        
+    - name: Run script
+      id: run_script
+      run: |
+        SCRIPT_NAME="${{ github.event.inputs.script_name }}"
+        SCRIPT_FILE="${{ github.event.inputs.script_file }}"
+        
+        echo "📋 Script Name: $SCRIPT_NAME"
+        echo "📄 Script File: $SCRIPT_FILE"
+        echo ""
+        
+        # Cek apakah ada package.json
+        if [ -f "package.json" ]; then
+          # Cek apakah script ada di package.json
+          if grep -q "\"$SCRIPT_NAME\"" package.json; then
+            echo "🚀 Running: npm run $SCRIPT_NAME"
+            npm run $SCRIPT_NAME 2>&1 | tee output.txt
           else
-            echo "No JavaScript files found"
+            # Jika tidak ada di package.json, jalankan file JS langsung
+            if [ -f "$SCRIPT_FILE" ]; then
+              echo "🚀 Running: node $SCRIPT_FILE"
+              node $SCRIPT_FILE 2>&1 | tee output.txt
+            elif [ -f "index.js" ]; then
+              echo "🚀 Running: node index.js (fallback)"
+              node index.js 2>&1 | tee output.txt
+            else
+              echo "❌ No script found"
+              exit 1
+            fi
+          fi
+        else
+          # Tanpa package.json, jalankan file JS langsung
+          if [ -f "$SCRIPT_FILE" ]; then
+            echo "🚀 Running: node $SCRIPT_FILE"
+            node $SCRIPT_FILE 2>&1 | tee output.txt
+          elif [ -f "index.js" ]; then
+            echo "🚀 Running: node index.js (fallback)"
+            node index.js 2>&1 | tee output.txt
+          else
+            echo "❌ No script found"
             exit 1
           fi
         fi
         
-    - name: Upload logs
+        EXIT_CODE=${PIPESTATUS[0]}
+        echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+        
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "✅ Script completed successfully"
+        else
+          echo "❌ Script failed with exit code: $EXIT_CODE"
+        fi
+        
+    - name: Save execution result
       if: always()
-      uses: actions/upload-artifact@v3
+      run: |
+        echo "## 📊 Execution Result" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| **Script Name** | ${{ github.event.inputs.script_name }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Script File** | ${{ github.event.inputs.script_file }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Status** | ${{ job.status }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Exit Code** | ${{ steps.run_script.outputs.exit_code || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Time** | $(date) |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "### 📤 Script Output:" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        if [ -f "output.txt" ]; then
+          cat output.txt >> $GITHUB_STEP_SUMMARY
+        else
+          echo "No output generated" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        
+    - name: Upload execution logs
+      if: always()
+      uses: actions/upload-artifact@v4
       with:
-        name: script-logs
-        path: |
-          *.log
-          output.txt
+        name: script-logs-${{ github.run_id }}
+        path: output.txt
+        retention-days: 7
