@@ -1,0 +1,133 @@
+name: Run Ubot ubot_manager_mongodb
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  run-ubot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-pip python3-venv libjpeg-dev zlib1g-dev libpng-dev libwebp-dev libtiff-dev libfreetype6-dev libopenjp2-7-dev libssl-dev ffmpeg git wget curl unzip
+        
+    - name: Extract ZIP file
+      run: |
+        ZIP_FILE=$(find . -name "*.zip" -type f | head -1)
+        echo "ZIP file: $ZIP_FILE"
+        if [ -z "$ZIP_FILE" ]; then exit 1; fi
+        mkdir -p ubot/
+        unzip -o "$ZIP_FILE" -d ubot/
+        echo "Files in ubot/:"
+        ls -la ubot/
+        
+    - name: Find PyroUbot directory
+      id: find_ubot
+      run: |
+        echo "Searching for PyroUbot..."
+        UBOBOT_DIR=$(find ubot/ -type d -name "PyroUbot" | head -1)
+        echo "Found: $UBOBOT_DIR"
+        echo "ubot_dir=$UBOBOT_DIR" >> $GITHUB_OUTPUT
+        echo "ubot_parent=$(dirname "$UBOBOT_DIR")" >> $GITHUB_OUTPUT
+        
+    - name: Install Node.js
+      run: |
+        cd ubot/
+        if [ -f "installnode.sh" ]; then bash installnode.sh; fi
+        
+    - name: Setup Python
+      run: |
+        cd ubot/
+        python3 -m venv ubotMacha
+        source ubotMacha/bin/activate
+        pip3 install --upgrade pip
+        pip3 install tornado pyrogram tgcrypto pillow pymongo motor
+        
+    - name: Install requirements
+      run: |
+        cd ubot/
+        source ubotMacha/bin/activate
+        
+        if [ -f "requirements.txt" ]; then
+          pip3 install -r requirements.txt || true
+        fi
+        
+        if [ -d "UbotModul500v3" ] && [ -f "UbotModul500v3/requirements.txt" ]; then
+          pip3 install -r UbotModul500v3/requirements.txt || true
+        fi
+        
+        if [ -d "PyroUbot" ] && [ -f "PyroUbot/requirements.txt" ]; then
+          pip3 install -r PyroUbot/requirements.txt || true
+        fi
+        
+        pip3 install aiohttp aiofiles beautifulsoup4 requests pytz python-dotenv psutil
+        
+    - name: Setup .env
+      run: |
+        cd ubot/
+        
+        if [ -f "sample.env" ]; then
+          cp sample.env .env
+        elif [ -f "UbotModul500v3/sample.env" ]; then
+          cp UbotModul500v3/sample.env .env
+        elif [ -f "PyroUbot/sample.env" ]; then
+          cp PyroUbot/sample.env .env
+        else
+          touch .env
+        fi
+        
+        echo "MONGODB_URL=mongodb://localhost:27017/" >> .env
+        echo "BOT_TOKEN=your_bot_token" >> .env
+        cat .env
+        
+    - name: Run Ubot
+      run: |
+        cd ubot/
+        source ubotMacha/bin/activate
+        
+        if [ -d "UbotModul500v3/PyroUbot" ]; then
+          cd UbotModul500v3/PyroUbot
+        elif [ -d "PyroUbot" ]; then
+          cd PyroUbot
+        else
+          UBOBOT_DIR=$(find . -type d -name "PyroUbot" | head -1)
+          if [ -n "$UBOBOT_DIR" ]; then
+            cd "$UBOBOT_DIR"
+          fi
+        fi
+        
+        echo "Current directory: $(pwd)"
+        echo "Files:"
+        ls -la
+        
+        if [ -f "__main__.py" ]; then
+          echo "Running __main__.py..."
+          python3 __main__.py
+        elif [ -f "main.py" ]; then
+          echo "Running main.py..."
+          python3 main.py
+        elif [ -f "bot.py" ]; then
+          echo "Running bot.py..."
+          python3 bot.py
+        else
+          echo "Searching for entry point..."
+          MAIN_FILE=$(find . -maxdepth 1 -name "*.py" -type f | grep -v "__" | head -1)
+          if [ -n "$MAIN_FILE" ]; then
+            echo "Found: $MAIN_FILE, running..."
+            python3 $MAIN_FILE
+          else
+            echo "No Python entry file found!"
+            find . -name "*.py" -type f
+            exit 1
+          fi
+        fi
+      continue-on-error: false
+    
