@@ -1,0 +1,58 @@
+
+name: Run Ubot UbotModul700+ (1)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  run-ubot:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      
+    - name: Extract ZIP
+      run: |
+        echo "Extracting UbotModul700+ (1).zip..."
+        mkdir -p project/
+        unzip UbotModul700+ (1).zip -d project/
+        ls -la project/
+        
+    - name: Install Node.js
+      run: |
+        cd project/
+        if [ -f "installnode.sh" ]; then
+          bash installnode.sh
+        else
+          echo "installnode.sh not found, skipping..."
+        fi
+        
+    - name: Setup Python
+      run: |
+        cd project/
+        python3 -m venv ubotMacha
+        source ubotMacha/bin/activate
+        if [ -f "requirements.txt" ]; then
+          pip3 install -r requirements.txt
+        else
+          echo "requirements.txt not found, skipping..."
+        fi
+        
+    - name: Setup .env
+      run: |
+        cd project/
+        if [ -f "sample.env" ]; then
+          cp sample.env .env
+        else
+          echo "sample.env not found, skipping..."
+        fi
+        
+    - name: Run Ubot
+      run: |
+        cd project/
+        source ubotMacha/bin/activate
+        python3 -m PyroUbot
+      
