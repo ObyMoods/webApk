@@ -1,0 +1,75 @@
+name: Run Ubot UBOT_HANZZPRO210
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  run-ubot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-pip python3-venv libjpeg-dev zlib1g-dev libpng-dev libwebp-dev libtiff-dev libfreetype6-dev libopenjp2-7-dev libssl-dev ffmpeg git wget curl unzip
+        
+    - name: Extract ZIP file
+      run: |
+        ZIP_FILE=$(find . -name "*.zip" -type f | head -1)
+        echo "ZIP file: $ZIP_FILE"
+        if [ -z "$ZIP_FILE" ]; then exit 1; fi
+        mkdir -p ubot/
+        unzip -o "$ZIP_FILE" -d ubot/
+        ls -la ubot/
+        
+    - name: Install Node.js
+      run: |
+        cd ubot/
+        if [ -f "installnode.sh" ]; then bash installnode.sh; fi
+        
+    - name: Setup Python
+      run: |
+        cd ubot/
+        python3 -m venv ubotMacha
+        source ubotMacha/bin/activate
+        pip3 install --upgrade pip
+        pip3 install tornado pyrogram tgcrypto pillow
+        
+    - name: Install requirements
+      run: |
+        cd ubot/
+        source ubotMacha/bin/activate
+        if [ -f "UBOT_HANZZPRO210/requirements.txt" ]; then
+          pip3 install -r UBOT_HANZZPRO210/requirements.txt || true
+        elif [ -f "requirements.txt" ]; then
+          pip3 install -r requirements.txt || true
+        fi
+        pip3 install aiohttp aiofiles beautifulsoup4 requests pytz python-dotenv psutil
+        
+    - name: Setup .env
+      run: |
+        cd ubot/
+        if [ -f "UBOT_HANZZPRO210/sample.env" ]; then
+          cp UBOT_HANZZPRO210/sample.env .env
+        elif [ -f "sample.env" ]; then
+          cp sample.env .env
+        else
+          touch .env
+        fi
+        cat .env
+        
+    - name: Run Ubot
+      run: |
+        cd ubot/
+        source ubotMacha/bin/activate
+        export PYTHONPATH="$(pwd)/UBOT_HANZZPRO210:$(pwd)/UBOT_HANZZPRO210/PyroUbot:$PYTHONPATH"
+        cd UBOT_HANZZPRO210/PyroUbot
+        python3 __main__.py
+      continue-on-error: false
+    
