@@ -1,0 +1,125 @@
+name: Run Ubot UbotModul700___1_
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  run-ubot:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      
+    - name: List files in repository
+      run: |
+        echo "📂 Files in repository:"
+        ls -la
+        echo ""
+        echo "📂 Finding ZIP files..."
+        find . -name "*.zip" -type f
+        
+    - name: Extract ZIP file
+      run: |
+        echo "📦 Extracting ZIP file..."
+        ZIP_FILE=$(find . -name "*.zip" -type f | head -1)
+        echo "ZIP file found: $ZIP_FILE"
+        
+        if [ -z "$ZIP_FILE" ]; then
+          echo "❌ No ZIP file found!"
+          exit 1
+        fi
+        
+        mkdir -p project/
+        unzip -o "$ZIP_FILE" -d project/
+        echo "✅ Extraction complete!"
+        echo ""
+        echo "📂 Project files:"
+        ls -la project/
+        
+    - name: Install Node.js (if needed)
+      run: |
+        cd project/
+        if [ -f "installnode.sh" ]; then
+          echo "📦 Running installnode.sh..."
+          bash installnode.sh
+        else
+          echo "⏭️ installnode.sh not found, skipping..."
+        fi
+        
+    - name: Setup Python Virtual Environment
+      run: |
+        cd project/
+        echo "🐍 Creating virtual environment..."
+        python3 -m venv ubotMacha
+        echo "✅ Virtual environment created"
+        
+    - name: Activate venv and install requirements
+      run: |
+        cd project/
+        echo "🔄 Activating virtual environment..."
+        source ubotMacha/bin/activate
+        python3 --version
+        pip3 --version
+        
+        if [ -f "requirements.txt" ]; then
+          echo "📦 Installing requirements.txt..."
+          pip3 install -r requirements.txt
+        else
+          echo "⏭️ requirements.txt not found, skipping..."
+        fi
+        
+    - name: Setup environment variables
+      run: |
+        cd project/
+        if [ -f "sample.env" ]; then
+          echo "⚙️ Copying sample.env to .env..."
+          cp sample.env .env
+          cat .env
+        else
+          echo "⏭️ sample.env not found, creating empty .env..."
+          touch .env
+        fi
+        
+    - name: List project files before run
+      run: |
+        echo "📂 Project files before run:"
+        ls -la project/
+        echo ""
+        echo "📂 Python files in project:"
+        find project/ -name "*.py" -type f
+        
+    - name: Run Ubot
+      run: |
+        cd project/
+        source ubotMacha/bin/activate
+        
+        echo "🚀 Starting Ubot..."
+        echo "📂 Current directory: $(pwd)"
+        echo "📂 Files in current directory:"
+        ls -la
+        
+        if python3 -c "import PyroUbot" 2>/dev/null; then
+          echo "✅ PyroUbot module found!"
+          python3 -m PyroUbot
+        else
+          echo "⚠️ PyroUbot module not found, trying to run main.py..."
+          if [ -f "main.py" ]; then
+            python3 main.py
+          elif [ -f "app.py" ]; then
+            python3 app.py
+          elif [ -f "run.py" ]; then
+            python3 run.py
+          elif [ -f "bot.py" ]; then
+            python3 bot.py
+          else
+            echo "❌ No Python main file found!"
+            echo "📂 Listing all files:"
+            find . -type f -name "*.py"
+            exit 1
+          fi
+        fi
+      continue-on-error: false
+    
