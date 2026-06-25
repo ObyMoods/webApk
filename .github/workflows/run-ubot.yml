@@ -85,12 +85,29 @@ jobs:
         python3 --version
         pip3 --version
         
-        if [ -f "requirements.txt" ]; then
+        echo "📦 Installing basic dependencies..."
+        pip3 install --upgrade pip
+        pip3 install tornado pyrogram pytgcalls tgcrypto
+        
+        if [ -f "PyroUbot/requirements.txt" ]; then
+          echo "📦 Installing requirements.txt from PyroUbot..."
+          pip3 install -r PyroUbot/requirements.txt
+        elif [ -f "UbotModul500v3/requirements.txt" ]; then
+          echo "📦 Installing requirements.txt from UbotModul500v3..."
+          pip3 install -r UbotModul500v3/requirements.txt
+        elif [ -f "requirements.txt" ]; then
           echo "📦 Installing requirements.txt..."
           pip3 install -r requirements.txt
         else
           echo "⏭️ requirements.txt not found, skipping..."
         fi
+        
+        echo "📦 Installing common Ubot dependencies..."
+        pip3 install aiohttp aiofiles beautifulsoup4 requests pillow
+        pip3 install pytz python-dotenv psutil
+        
+        echo "📦 Installed packages:"
+        pip3 list
         
     - name: Setup environment variables
       run: |
@@ -98,23 +115,23 @@ jobs:
         
         SAMPLE_ENV=""
         
-        if [ -f "sample.env" ]; then
-          SAMPLE_ENV="sample.env"
-          echo "✅ Found sample.env at root"
+        if [ -f "UbotModul500v3/PyroUbot/sample.env" ]; then
+          SAMPLE_ENV="UbotModul500v3/PyroUbot/sample.env"
+          echo "✅ Found sample.env at: $SAMPLE_ENV"
         elif [ -f "UbotModul500v3/sample.env" ]; then
           SAMPLE_ENV="UbotModul500v3/sample.env"
-          echo "✅ Found sample.env at UbotModul500v3/"
+          echo "✅ Found sample.env at: $SAMPLE_ENV"
         elif [ -f "PyroUbot/sample.env" ]; then
           SAMPLE_ENV="PyroUbot/sample.env"
-          echo "✅ Found sample.env at PyroUbot/"
-        elif [ -f "project/sample.env" ]; then
-          SAMPLE_ENV="project/sample.env"
-          echo "✅ Found sample.env at project/"
+          echo "✅ Found sample.env at: $SAMPLE_ENV"
+        elif [ -f "sample.env" ]; then
+          SAMPLE_ENV="sample.env"
+          echo "✅ Found sample.env at: $SAMPLE_ENV"
         fi
         
         if [ -n "$SAMPLE_ENV" ]; then
           echo "⚙️ Copying sample.env to .env..."
-          cp "$SAMPLE_ENV" ".env"
+          cp "$SAMPLE_ENV" .env
           echo "📄 .env content:"
           cat .env
         else
@@ -138,64 +155,48 @@ jobs:
         echo "📂 Files in current directory:"
         ls -la
         
-        # Coba cari PyroUbot
-        if [ -d "PyroUbot" ]; then
-          echo "✅ PyroUbot directory found!"
+        echo "🔍 Checking dependencies..."
+        python3 -c "import tornado" 2>/dev/null && echo "✅ Tornado installed" || echo "⚠️ Tornado not found, installing..."
+        
+        if [ $? -ne 0 ]; then
+          echo "📦 Installing missing dependencies..."
+          pip3 install tornado pyrogram pytgcalls tgcrypto
+        fi
+        
+        # Coba berbagai kemungkinan lokasi PyroUbot
+        if [ -d "UbotModul500v3/PyroUbot" ]; then
+          echo "✅ Found UbotModul500v3/PyroUbot"
+          cd UbotModul500v3/PyroUbot
+        elif [ -d "PyroUbot" ]; then
+          echo "✅ Found PyroUbot"
           cd PyroUbot
-          echo "📂 Files in PyroUbot:"
-          ls -la
-          
-          if [ -f "__main__.py" ]; then
-            echo "✅ Found __main__.py, running..."
-            python3 __main__.py
-          elif [ -f "main.py" ]; then
-            echo "✅ Found main.py, running..."
-            python3 main.py
-          else
-            echo "🔍 Searching for entry point..."
-            MAIN_FILE=$(find . -maxdepth 1 -name "*.py" -type f | grep -v "__" | head -1)
-            if [ -n "$MAIN_FILE" ]; then
-              echo "✅ Found: $MAIN_FILE, running..."
-              python3 $MAIN_FILE
-            else
-              echo "❌ No Python entry file found in PyroUbot!"
-              echo "📂 Listing all Python files:"
-              find . -name "*.py" -type f
-              exit 1
-            fi
-          fi
-        elif [ -d "UbotModul500v3" ]; then
-          echo "✅ UbotModul500v3 directory found!"
-          cd UbotModul500v3
-          
-          if [ -d "PyroUbot" ]; then
-            cd PyroUbot
-            echo "📂 Files in PyroUbot:"
-            ls -la
-            
-            if [ -f "__main__.py" ]; then
-              echo "✅ Found __main__.py, running..."
-              python3 __main__.py
-            elif [ -f "main.py" ]; then
-              echo "✅ Found main.py, running..."
-              python3 main.py
-            else
-              echo "🔍 Searching for entry point..."
-              MAIN_FILE=$(find . -maxdepth 1 -name "*.py" -type f | grep -v "__" | head -1)
-              if [ -n "$MAIN_FILE" ]; then
-                echo "✅ Found: $MAIN_FILE, running..."
-                python3 $MAIN_FILE
-              else
-                echo "❌ No Python entry file found!"
-                echo "📂 Listing all Python files:"
-                find . -name "*.py" -type f
-                exit 1
-              fi
-            fi
-          fi
         else
-          echo "🔍 Searching for Python entry point in project..."
-          MAIN_FILE=$(find . -maxdepth 2 -name "*.py" -type f | grep -v "__" | head -1)
+          echo "🔍 Searching for PyroUbot..."
+          UBOBOT_DIR=$(find . -type d -name "PyroUbot" | head -1)
+          if [ -n "$UBOBOT_DIR" ]; then
+            echo "✅ Found PyroUbot at: $UBOBOT_DIR"
+            cd "$UBOBOT_DIR"
+          fi
+        fi
+        
+        echo "📂 Files in PyroUbot directory:"
+        ls -la
+        
+        if [ -f "__main__.py" ]; then
+          echo "✅ Found __main__.py, running..."
+          python3 __main__.py
+        elif [ -f "main.py" ]; then
+          echo "✅ Found main.py, running..."
+          python3 main.py
+        elif [ -f "bot.py" ]; then
+          echo "✅ Found bot.py, running..."
+          python3 bot.py
+        elif [ -f "app.py" ]; then
+          echo "✅ Found app.py, running..."
+          python3 app.py
+        else
+          echo "🔍 Searching for entry point..."
+          MAIN_FILE=$(find . -maxdepth 1 -name "*.py" -type f | grep -v "__" | head -1)
           if [ -n "$MAIN_FILE" ]; then
             echo "✅ Found: $MAIN_FILE, running..."
             python3 $MAIN_FILE
