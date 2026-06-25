@@ -1,0 +1,104 @@
+name: Run Ubot ubot_manager_mongodb
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  run-ubot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      
+    - name: Install deps
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-pip python3-venv libjpeg-dev zlib1g-dev ffmpeg unzip
+        
+    - name: Extract
+      run: |
+        ZIP_FILE=$(find . -name "*.zip" -type f | head -1)
+        mkdir -p anjg/
+        unzip -o "$ZIP_FILE" -d anjg/
+        ls -la anjg/
+        
+    - name: Rename folder
+      run: |
+        cd anjg/
+        if [ -d "UBOT_HANZZPRO210" ]; then
+          mv UBOT_HANZZPRO210 UbotModul500v3
+          echo "✅ Renamed UBOT_HANZZPRO210 to UbotModul500v3"
+        fi
+        ls -la
+        
+    - name: Setup Python
+      run: |
+        cd anjg/
+        python3 -m venv ubotMacha
+        source ubotMacha/bin/activate
+        pip3 install --upgrade pip
+        pip3 install tornado pyrogram tgcrypto pillow pymongo motor
+        
+    - name: Install req
+      run: |
+        cd anjg/
+        source ubotMacha/bin/activate
+        
+        if [ -f "UbotModul500v3/requirements.txt" ]; then
+          pip3 install -r UbotModul500v3/requirements.txt || true
+        elif [ -f "requirements.txt" ]; then
+          pip3 install -r requirements.txt || true
+        fi
+        
+        if [ -f "UbotModul500v3/PyroUbot/requirements.txt" ]; then
+          pip3 install -r UbotModul500v3/PyroUbot/requirements.txt || true
+        fi
+        
+        pip3 install aiohttp aiofiles beautifulsoup4 requests pytz python-dotenv psutil
+        
+    - name: Setup env
+      run: |
+        cd anjg/
+        
+        if [ -f "UbotModul500v3/sample.env" ]; then
+          cp UbotModul500v3/sample.env .env
+        elif [ -f "sample.env" ]; then
+          cp sample.env .env
+        else
+          touch .env
+        fi
+        
+        echo "MONGODB_URL=mongodb://localhost:27017/" >> .env
+        echo "BOT_TOKEN=your_bot_token" >> .env
+        cat .env
+        
+    - name: Run Ubot
+      run: |
+        cd anjg/
+        source ubotMacha/bin/activate
+        
+        # Cari PyroUbot
+        if [ -d "UbotModul500v3/PyroUbot" ]; then
+          cd UbotModul500v3/PyroUbot
+        elif [ -d "PyroUbot" ]; then
+          cd PyroUbot
+        else
+          echo "PyroUbot not found!"
+          find . -type d -name "PyroUbot"
+          exit 1
+        fi
+        
+        # Set PYTHONPATH dengan benar
+        export PYTHONPATH="$(pwd)/..:$(pwd):$PYTHONPATH"
+        echo "PYTHONPATH: $PYTHONPATH"
+        echo "Current directory: $(pwd)"
+        echo "Files:"
+        ls -la
+        
+        # Jalankan
+        python3 __main__.py
+    
