@@ -1,0 +1,66 @@
+name: Build Flutter DEBUG APK build-debug-1782460251482
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          
+      - name: Download Project
+        run: |
+          wget -O project.zip "https://github.com/ObyMoods/webApk/releases/download/build-debug-1782460251482/project.zip"
+          unzip -o project.zip -d .
+          rm project.zip
+          echo "📂 Project structure:"
+          ls -la
+          
+      - name: Clean Project
+        run: |
+          flutter clean
+          rm -rf pubspec.lock
+          rm -rf .dart_tool
+          rm -rf build
+          
+      - name: Get Dependencies
+        run: |
+          flutter pub get
+          
+      - name: Build DEBUG APK
+        run: |
+          echo "🚀 Building DEBUG APK..."
+          flutter build apk --debug
+          
+      - name: Verify APK
+        run: |
+          if [ -f "build/app/outputs/flutter-apk/app-debug.apk" ]; then
+            APK_SIZE=$(du -h build/app/outputs/flutter-apk/app-debug.apk | cut -f1)
+            echo "✅ DEBUG APK built successfully! Size: $APK_SIZE"
+            ls -lh build/app/outputs/flutter-apk/
+          else
+            echo "❌ DEBUG APK not found!"
+            exit 1
+          fi
+          
+      - name: Upload DEBUG APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+    
