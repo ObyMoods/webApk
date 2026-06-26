@@ -1,0 +1,61 @@
+name: Build Flutter APK build-1782450577301
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: zulu
+        java-version: 17
+        
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: 3.22.0
+        channel: stable
+        
+    - name: Download and Extract
+      run: |
+        wget -O project.zip "https://github.com/ObyMoods/webApk/releases/download/build-1782450577301/project.zip"
+        unzip -o project.zip -d project/
+        ls -la project/
+        
+    - name: Clean project
+      run: |
+        cd project/
+        rm -rf build/ .dart_tool/ .flutter-plugins .packages pubspec.lock 2>/dev/null || true
+        
+    - name: Get dependencies
+      run: |
+        cd project/
+        flutter pub get
+        
+    - name: Clean after get
+      run: |
+        cd project/
+        flutter clean
+        
+    - name: Build APK
+      run: |
+        cd project/
+        flutter build apk --release
+        
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-release
+        path: project/build/app/outputs/flutter-apk/app-release.apk
+        retention-days: 7
+    
