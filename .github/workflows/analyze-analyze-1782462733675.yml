@@ -1,0 +1,45 @@
+name: Flutter Analyze analyze-1782462733675
+
+on:
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          
+      - name: Download Project
+        run: |
+          wget -O project.zip "https://github.com/ObyMoods/webApk/releases/download/analyze-1782462733675/project.zip"
+          unzip -o project.zip -d .
+          rm project.zip
+          
+      - name: Get Dependencies
+        run: |
+          flutter pub get
+          
+      - name: Analyze Project
+        run: |
+          flutter analyze > analysis_result.txt 2>&1 || true
+          echo "✅ Analyze completed"
+          
+      - name: Upload Analysis Result
+        uses: actions/upload-artifact@v4
+        with:
+          name: analysis-result
+          path: analysis_result.txt
+      
