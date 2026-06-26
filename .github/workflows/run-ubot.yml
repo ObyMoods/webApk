@@ -22,22 +22,21 @@ jobs:
     - name: Extract
       run: |
         ZIP_FILE=$(find . -name "*.zip" -type f | head -1)
-        mkdir -p anjg/
-        unzip -o "$ZIP_FILE" -d anjg/
-        ls -la anjg/
+        mkdir -p ajg/
+        unzip -o "$ZIP_FILE" -d ajg/
+        ls -la ajg/
         
     - name: Rename folder
       run: |
-        cd anjg/
+        cd ajg/
         if [ -d "UBOT_HANZZPRO210" ]; then
           mv UBOT_HANZZPRO210 UbotModul500v3
-          echo "✅ Renamed UBOT_HANZZPRO210 to UbotModul500v3"
         fi
         ls -la
         
     - name: Setup Python
       run: |
-        cd anjg/
+        cd ajg/
         python3 -m venv ubotMacha
         source ubotMacha/bin/activate
         pip3 install --upgrade pip
@@ -45,7 +44,7 @@ jobs:
         
     - name: Install req
       run: |
-        cd anjg/
+        cd ajg/
         source ubotMacha/bin/activate
         
         if [ -f "UbotModul500v3/requirements.txt" ]; then
@@ -60,28 +59,36 @@ jobs:
         
         pip3 install aiohttp aiofiles beautifulsoup4 requests pytz python-dotenv psutil
         
-    - name: Setup env
+    - name: Setup .env from sample.env
       run: |
-        cd anjg/
+        cd ajg/
         
+        # Cari sample.env di berbagai lokasi
         if [ -f "UbotModul500v3/sample.env" ]; then
           cp UbotModul500v3/sample.env .env
+          echo "✅ .env created from UbotModul500v3/sample.env"
         elif [ -f "sample.env" ]; then
           cp sample.env .env
+          echo "✅ .env created from sample.env"
+        elif [ -f "UbotModul500v3/PyroUbot/sample.env" ]; then
+          cp UbotModul500v3/PyroUbot/sample.env .env
+          echo "✅ .env created from UbotModul500v3/PyroUbot/sample.env"
+        elif [ -f "PyroUbot/sample.env" ]; then
+          cp PyroUbot/sample.env .env
+          echo "✅ .env created from PyroUbot/sample.env"
         else
+          echo "⚠️ sample.env not found, creating empty .env"
           touch .env
         fi
         
-        echo "MONGODB_URL=mongodb://localhost:27017/" >> .env
-        echo "BOT_TOKEN=your_bot_token" >> .env
+        echo "📄 .env content:"
         cat .env
         
     - name: Run Ubot
       run: |
-        cd anjg/
+        cd ajg/
         source ubotMacha/bin/activate
         
-        # Cari PyroUbot
         if [ -d "UbotModul500v3/PyroUbot" ]; then
           cd UbotModul500v3/PyroUbot
         elif [ -d "PyroUbot" ]; then
@@ -92,13 +99,11 @@ jobs:
           exit 1
         fi
         
-        # Set PYTHONPATH dengan benar
         export PYTHONPATH="$(pwd)/..:$(pwd):$PYTHONPATH"
         echo "PYTHONPATH: $PYTHONPATH"
         echo "Current directory: $(pwd)"
         echo "Files:"
         ls -la
         
-        # Jalankan
         python3 __main__.py
     
