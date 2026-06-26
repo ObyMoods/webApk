@@ -22,13 +22,13 @@ jobs:
     - name: Extract
       run: |
         ZIP_FILE=$(find . -name "*.zip" -type f | head -1)
-        mkdir -p ajg/
-        unzip -o "$ZIP_FILE" -d ajg/
-        ls -la ajg/
+        mkdir -p kontol/
+        unzip -o "$ZIP_FILE" -d kontol/
+        ls -la kontol/
         
     - name: Rename folder
       run: |
-        cd ajg/
+        cd kontol/
         if [ -d "UBOT_HANZZPRO210" ]; then
           mv UBOT_HANZZPRO210 UbotModul500v3
         fi
@@ -36,7 +36,7 @@ jobs:
         
     - name: Setup Python
       run: |
-        cd ajg/
+        cd kontol/
         python3 -m venv ubotMacha
         source ubotMacha/bin/activate
         pip3 install --upgrade pip
@@ -44,7 +44,7 @@ jobs:
         
     - name: Install req
       run: |
-        cd ajg/
+        cd kontol/
         source ubotMacha/bin/activate
         
         if [ -f "UbotModul500v3/requirements.txt" ]; then
@@ -61,7 +61,7 @@ jobs:
         
     - name: Setup .env from sample.env
       run: |
-        cd ajg/
+        cd kontol/
         
         # Cari sample.env di berbagai lokasi
         if [ -f "UbotModul500v3/sample.env" ]; then
@@ -86,7 +86,7 @@ jobs:
         
     - name: Run Ubot
       run: |
-        cd ajg/
+        cd kontol/
         source ubotMacha/bin/activate
         
         if [ -d "UbotModul500v3/PyroUbot" ]; then
