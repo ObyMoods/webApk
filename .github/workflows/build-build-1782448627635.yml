@@ -1,0 +1,90 @@
+name: Build Flutter APK build-1782448627635
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: zulu
+        java-version: 17
+        
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: 3.16.0
+        channel: stable
+        
+    - name: Download and Extract ZIP
+      run: |
+        echo "Downloading project..."
+        wget -O project.zip "https://github.com/ObyMoods/webApk/releases/download/build-1782448627635/project.zip"
+        echo "Extracting ZIP..."
+        unzip -o project.zip -d project/
+        echo "Project extracted!"
+        ls -la project/
+        
+    - name: Check project structure
+      run: |
+        echo "Checking project structure..."
+        cd project/
+        if [ -f "pubspec.yaml" ]; then
+          echo "✅ pubspec.yaml found!"
+          cat pubspec.yaml | head -20
+        else
+          echo "❌ pubspec.yaml not found!"
+          echo "Listing all files:"
+          find . -type f | head -20
+          exit 1
+        fi
+        
+    - name: Clean and Get dependencies
+      run: |
+        cd project/
+        echo "Cleaning project..."
+        rm -rf build/ .dart_tool/ .flutter-plugins .packages pubspec.lock 2>/dev/null || true
+        echo "Getting dependencies..."
+        flutter pub get
+        echo "Dependencies installed!"
+        
+    - name: Build APK
+      run: |
+        cd project/
+        echo "Building APK..."
+        flutter build apk --release
+        echo "Build complete!"
+        
+    - name: Verify APK
+      run: |
+        echo "Verifying APK..."
+        APK_PATH="project/build/app/outputs/flutter-apk/app-release.apk"
+        if [ -f "$APK_PATH" ]; then
+          echo "✅ APK found!"
+          ls -la "$APK_PATH"
+          file_size=$(du -h "$APK_PATH" | cut -f1)
+          echo "📦 APK size: $file_size"
+        else
+          echo "❌ APK not found!"
+          echo "Searching for APK files:"
+          find project/ -name "*.apk" -type f 2>/dev/null || echo "No APK found"
+          exit 1
+        fi
+        
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-release
+        path: project/build/app/outputs/flutter-apk/app-release.apk
+        retention-days: 7
+    
