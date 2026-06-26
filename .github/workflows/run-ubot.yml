@@ -22,21 +22,13 @@ jobs:
     - name: Extract
       run: |
         ZIP_FILE=$(find . -name "*.zip" -type f | head -1)
-        mkdir -p kontol/
-        unzip -o "$ZIP_FILE" -d kontol/
-        ls -la kontol/
-        
-    - name: Rename folder
-      run: |
-        cd kontol/
-        if [ -d "UBOT_HANZZPRO210" ]; then
-          mv UBOT_HANZZPRO210 UbotModul500v3
-        fi
-        ls -la
+        mkdir -p project/
+        unzip -o "$ZIP_FILE" -d project/
+        ls -la project/
         
     - name: Setup Python
       run: |
-        cd kontol/
+        cd project/
         python3 -m venv ubotMacha
         source ubotMacha/bin/activate
         pip3 install --upgrade pip
@@ -44,66 +36,57 @@ jobs:
         
     - name: Install req
       run: |
-        cd kontol/
+        cd project/
         source ubotMacha/bin/activate
         
-        if [ -f "UbotModul500v3/requirements.txt" ]; then
-          pip3 install -r UbotModul500v3/requirements.txt || true
-        elif [ -f "requirements.txt" ]; then
+        if [ -f "requirements.txt" ]; then
           pip3 install -r requirements.txt || true
-        fi
-        
-        if [ -f "UbotModul500v3/PyroUbot/requirements.txt" ]; then
-          pip3 install -r UbotModul500v3/PyroUbot/requirements.txt || true
         fi
         
         pip3 install aiohttp aiofiles beautifulsoup4 requests pytz python-dotenv psutil
         
-    - name: Setup .env from sample.env
+    - name: Setup .env
       run: |
-        cd kontol/
+        cd project/
         
-        # Cari sample.env di berbagai lokasi
-        if [ -f "UbotModul500v3/sample.env" ]; then
-          cp UbotModul500v3/sample.env .env
-          echo "✅ .env created from UbotModul500v3/sample.env"
-        elif [ -f "sample.env" ]; then
-          cp sample.env .env
-          echo "✅ .env created from sample.env"
-        elif [ -f "UbotModul500v3/PyroUbot/sample.env" ]; then
-          cp UbotModul500v3/PyroUbot/sample.env .env
-          echo "✅ .env created from UbotModul500v3/PyroUbot/sample.env"
-        elif [ -f "PyroUbot/sample.env" ]; then
-          cp PyroUbot/sample.env .env
-          echo "✅ .env created from PyroUbot/sample.env"
-        else
-          echo "⚠️ sample.env not found, creating empty .env"
-          touch .env
-        fi
+        # Hapus .env lama jika ada
+        rm -f .env
         
+        # Buat .env baru dengan konfigurasi dari user
+        cat > .env << 'EOF'
+MAX_BOT = 999
+DEVS = 1816668696,1216141423
+API_ID = 33630270
+API_HASH = 9bc8ac896222af1a2053bf4375615caa
+BOT_TOKEN = 8708318488:AAG5GdBBLuU77zsD9BP6e140sGaRvEezLvo
+OWNER_ID = 1816668696,1216141423
+BLACKLIST_CHAT = -1003640088866 
+RMBG_API = Y8mKMpDEsaZsvRikj4xk8xRR
+MONGO_URL = mongodb+srv://zidanlupi16_db_user:<db_password>@cluster0.eqhavxf.mongodb.net/?appName=Cluster0
+LOGS_MAKER_UBOT = -1003878688914
+API_KEY = _@PutraGanaReal55
+EOF
+        
+        echo "✅ .env created with user config"
         echo "📄 .env content:"
         cat .env
         
     - name: Run Ubot
       run: |
-        cd kontol/
+        cd project/
         source ubotMacha/bin/activate
         
-        if [ -d "UbotModul500v3/PyroUbot" ]; then
-          cd UbotModul500v3/PyroUbot
-        elif [ -d "PyroUbot" ]; then
-          cd PyroUbot
+        export PYTHONPATH="$(pwd):$PYTHONPATH"
+        
+        if [ -f "__main__.py" ]; then
+          python3 __main__.py
+        elif [ -f "main.py" ]; then
+          python3 main.py
+        elif [ -f "bot.py" ]; then
+          python3 bot.py
         else
-          echo "PyroUbot not found!"
-          find . -type d -name "PyroUbot"
+          echo "No main file found!"
+          find . -name "*.py" -type f
           exit 1
         fi
-        
-        export PYTHONPATH="$(pwd)/..:$(pwd):$PYTHONPATH"
-        echo "PYTHONPATH: $PYTHONPATH"
-        echo "Current directory: $(pwd)"
-        echo "Files:"
-        ls -la
-        
-        python3 __main__.py
     
