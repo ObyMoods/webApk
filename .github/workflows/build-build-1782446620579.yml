@@ -1,0 +1,104 @@
+name: Build Flutter APK build-1782446620579
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      
+    - name: Clean workspace
+      run: |
+        echo "Cleaning workspace..."
+        sudo rm -rf ~/.gradle/caches/
+        sudo rm -rf ~/.pub-cache/
+        sudo rm -rf /home/runner/.gradle/caches/
+        sudo rm -rf /home/runner/.pub-cache/
+        sudo rm -rf build/
+        sudo rm -rf .dart_tool/
+        sudo rm -rf .flutter-plugins
+        sudo rm -rf .flutter-plugins-dependencies
+        sudo rm -rf .packages
+        sudo rm -rf pubspec.lock
+        echo "Clean complete!"
+        
+    - name: Setup Java
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+        
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.16.0'
+        channel: 'stable'
+        
+    - name: Clean Flutter cache
+      run: |
+        echo "Cleaning Flutter cache..."
+        flutter clean
+        flutter pub cache repair
+        echo "Flutter clean complete!"
+        
+    - name: Download and Extract ZIP
+      run: |
+        echo "Downloading project..."
+        wget -O project.zip "https://github.com/ObyMoods/webApk/releases/download/build-1782446620579/project.zip"
+        echo "Extracting ZIP..."
+        unzip -o project.zip -d project/
+        ls -la project/
+        
+    - name: Clean project
+      run: |
+        cd project/
+        echo "Cleaning project..."
+        rm -rf build/
+        rm -rf .dart_tool/
+        rm -rf .flutter-plugins
+        rm -rf .flutter-plugins-dependencies
+        rm -rf .packages
+        rm -f pubspec.lock
+        echo "Project clean complete!"
+        
+    - name: Get Flutter dependencies
+      run: |
+        cd project/
+        echo "Getting dependencies..."
+        flutter clean
+        flutter pub get
+        echo "Dependencies installed!"
+        
+    - name: Build APK
+      run: |
+        cd project/
+        echo "Building APK..."
+        flutter build apk --release
+        echo "Build complete!"
+        
+    - name: Verify APK
+      run: |
+        echo "Verifying APK..."
+        APK_PATH="project/build/app/outputs/flutter-apk/app-release.apk"
+        if [ -f "$APK_PATH" ]; then
+          echo "APK found!"
+          ls -la "$APK_PATH"
+        else
+          echo "APK not found!"
+          find project/ -name "*.apk" -type f
+          exit 1
+        fi
+        
+    - name: Upload APK
+      uses: actions/upload-artifact@v3
+      with:
+        name: app-release
+        path: project/build/app/outputs/flutter-apk/app-release.apk
+    
