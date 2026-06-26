@@ -1,0 +1,67 @@
+name: Build Flutter APK build-1782451616527
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: zulu
+        java-version: 17
+        
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: 3.22.0
+        channel: stable
+        
+    - name: Download and Extract
+      run: |
+        wget -O project.zip "https://github.com/ObyMoods/webApk/releases/download/build-1782451616527/project.zip"
+        unzip -o project.zip -d project/
+        ls -la project/
+        
+    - name: Fix SDK version in pubspec.yaml
+      run: |
+        cd project/
+        if [ -f "pubspec.yaml" ]; then
+          echo "Original pubspec.yaml:"
+          cat pubspec.yaml
+          echo ""
+          echo "Fixing SDK version..."
+          # Hapus semua baris yang mengandung "sdk:" di environment
+          sed -i '/^[[:space:]]*sdk:/d' pubspec.yaml
+          # Tambahkan sdk baru setelah environment:
+          sed -i '/^environment:/a\  sdk: ">=3.0.0 <4.0.0"' pubspec.yaml
+          echo "Fixed pubspec.yaml:"
+          cat pubspec.yaml
+        fi
+        
+    - name: Get dependencies
+      run: |
+        cd project/
+        flutter pub get
+        
+    - name: Build APK
+      run: |
+        cd project/
+        flutter build apk --release
+        
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-release
+        path: project/build/app/outputs/flutter-apk/app-release.apk
+        retention-days: 7
+    
