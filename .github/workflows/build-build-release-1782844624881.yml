@@ -1,0 +1,159 @@
+name: Build Flutter RELEASE APK build-release-1782844624881
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      # 1. Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # 2. Setup Java
+      - name: Setup Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      # 3. Setup Flutter
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
+          cache: true
+      
+      # 4. Download project dari URL
+      - name: Download Project
+        run: |
+          echo "📥 Downloading project from: https://github.com/ObyMoods/webApk/releases/download/build-release-1782844624881/project.zip"
+          wget -O project.zip "https://github.com/ObyMoods/webApk/releases/download/build-release-1782844624881/project.zip"
+          if [ $? -ne 0 ]; then
+            echo "❌ Failed to download project"
+            exit 1
+          fi
+          echo "📦 Extracting project..."
+          unzip -o project.zip -d .
+          rm project.zip
+          echo "📂 Project structure:"
+          ls -la
+      
+      # 5. Clean project
+      - name: Clean Project
+        run: |
+          echo "🧹 Cleaning project..."
+          flutter clean || true
+          rm -rf pubspec.lock || true
+          rm -rf .dart_tool || true
+          rm -rf build || true
+      
+      # 6. Get dependencies
+      - name: Get Dependencies
+        run: |
+          echo "📦 Installing dependencies..."
+          flutter pub get
+          if [ $? -ne 0 ]; then
+            echo "❌ Failed to get dependencies"
+            exit 1
+          fi
+      
+      # 7. Analyze code (opsional)
+      - name: Analyze Code
+        run: |
+          echo "🔍 Analyzing code..."
+          flutter analyze || true
+      
+      # 8. Run tests (opsional)
+      - name: Run Tests
+        run: |
+          echo "🧪 Running tests..."
+          flutter test || true
+      
+      # 9. Build APK
+      - name: Build RELEASE APK
+        id: build_apk
+        run: |
+          echo "🚀 Building RELEASE APK..."
+          flutter build apk --release
+          if [ $? -ne 0 ]; then
+            echo "❌ Build failed!"
+            exit 1
+          fi
+          echo "✅ Build completed successfully!"
+      
+      # 10. Build Split APK (opsional)
+      - name: Build Split APK (Optional)
+        if: success()
+        run: |
+          echo "📱 Building split APKs..."
+          flutter build apk --release --split-per-abi || true
+      
+      # 11. Verify APK
+      - name: Verify APK
+        run: |
+          if [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
+            APK_SIZE=$(du -h build/app/outputs/flutter-apk/app-release.apk | cut -f1)
+            APK_SIZE_BYTES=$(stat -c%s build/app/outputs/flutter-apk/app-release.apk)
+            echo "✅ RELEASE APK built successfully!"
+            echo "📊 Size: $APK_SIZE"
+            echo "📊 Bytes: $APK_SIZE_BYTES"
+            echo "📂 Location: build/app/outputs/flutter-apk/app-release.apk"
+            ls -lh build/app/outputs/flutter-apk/
+          else
+            echo "❌ RELEASE APK not found!"
+            echo "📂 Checking directory contents:"
+            find build -name "*.apk" 2>/dev/null || echo "No APK found"
+            exit 1
+          fi
+      
+      # 12. Upload APK
+      - name: Upload RELEASE APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-build-release-1782844624881
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/flutter-apk/*-*-*.apk
+          if-no-files-found: warn
+          retention-days: 7
+      
+      # 13. Upload build logs (jika gagal)
+      - name: Upload Build Logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            build/
+            pubspec.lock
+            .dart_tool/
+          retention-days: 3
+      
+      # 14. Notifikasi success
+      - name: Build Success Notification
+        if: success()
+        run: |
+          echo "🎉 Build RELEASE APK successful!"
+          echo "📦 Artifact: app-release-build-release-1782844624881"
+          echo "📅 Tag: build-release-1782844624881"
+          echo "🔗 Download from GitHub Actions artifacts"
+      
+      # 15. Notifikasi failure
+      - name: Build Failure Notification
+        if: failure()
+        run: |
+          echo "❌ Build RELEASE APK failed!"
+          echo "📋 Check build logs for details"
+          exit 1
